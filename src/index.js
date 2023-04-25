@@ -66,7 +66,7 @@ app.get("/profile", (req, res) => {
 const port = configservices.PORT;
 
 app.listen(port, () => {
-  console.log(`\x1b[33mServer running on: http://localhost:${port}\x1b[0m`);
+  console.log(`\x1b[33mServer started: http://localhost:${port}\x1b[0m`);
 });
 
 // 404 middleware
