@@ -55,7 +55,8 @@ passport.use(
     {
       clientID:"831203606301-i5enj0qnj5fouo6ge67qplovn9d2ucgh.apps.googleusercontent.com",
       clientSecret:"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",
-      callbackURL: "http://localhost:5163/auth/google/callback",
+      // callbackURL: "http://localhost:5163/auth/google/callback",
+      callbackURL: process.env.NODE_ENV === "production" ? "https://ffo-foodstuffs.herokuapp.com" : "http://localhost:5163/auth/google/callback",
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
