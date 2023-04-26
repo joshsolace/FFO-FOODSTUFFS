@@ -5,7 +5,6 @@ const { configservices } = require("./config/config.js");
 const passport = require("passport");
 const session = require("express-session");
 const app = express();
-const flutterwave = require("flutterwave-node-v3");
 const cors = require("cors");
 const path = require("path");
 const userRoute = require("./routes/user.routes.js");
@@ -53,12 +52,6 @@ app.use("/auth", userRoute);
 app.use("/admin", adminRoute);
 
 
-// app.get(
-//   "/login/google/callback",
-//   passport.authenticate("google", { scope: ["profile", "email"] })
-// );
-
-// -----------------------------
 app.get("/profile", (req, res) => {
   res.render("profile", { user: req.user });
 });
@@ -66,7 +59,7 @@ app.get("/profile", (req, res) => {
 const port = configservices.PORT;
 
 app.listen(port, () => {
-  console.log(`\x1b[33mServer started: http://localhost:${port}\x1b[0m`);
+  console.log(`\x1b[33mServer : http://localhost:${port}\x1b[0m`);
 });
 
 // 404 middleware

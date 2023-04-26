@@ -9,4 +9,3 @@ create table
         Foreign Key (user_id) references users(id)
     );
 
-    SELECT SUM(quantity) AS total_products, SUM(total_price) AS total_price FROM cart WHERE user_id = userId;

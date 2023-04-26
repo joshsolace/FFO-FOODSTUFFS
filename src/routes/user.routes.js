@@ -1,6 +1,6 @@
 const express = require('express');
 const passport = require('passport');
-const { getAllFoodstuffs, addFoodstuffToCart, payWithFlutterwave } = require('../controller/foodstuff.controller');
+const { getAllFoodstuffs, addFoodstuffToCart, payment } = require('../controller/foodstuff.controller');
 const router = express.Router();
 require('../middleware/auth');
 
@@ -36,6 +36,6 @@ router.get('/availabefoostuffs/:page/:limit', getAllFoodstuffs);
 router.post('/addtocart/:id', addFoodstuffToCart);
 
 // pay for foodstuff in cart with flutterwave
-router.post('/cart/:cart_id/pay', payWithFlutterwave);
+router.post('/pay', payment);
 
 module.exports = router;

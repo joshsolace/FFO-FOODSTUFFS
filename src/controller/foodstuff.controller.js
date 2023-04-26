@@ -1,4 +1,6 @@
 const pool = require('../db/index.db');
+const uuid = require("uuid");
+const axios = require("axios");
 
 
 // get all available foodstuffs with pagination
@@ -24,60 +26,6 @@ try {
   console.log(err);
 }
 }
-
-
-// exports.addFoodstuffToCart = async (req, res) => {
-//   const { id } = req.params;
-//   const { quantity } = req.body;
-
-//   try {
-//     // Check if the foodstuff exists
-//     const foodstuff = await pool.query(
-//       'SELECT * FROM foodstuffs WHERE id = $1',
-//       [id]
-//     );
-
-//     if (foodstuff.rows.length === 0) {
-//       return res.status(404).json({
-//         message: 'Foodstuff not found',
-//       });
-//     }
-//     // Calculate the total price of the foodstuff based on the quantity
-//     const price = foodstuff.rows[0].price;
-//     const totalPrice = price * quantity;
-
-//     // Check if the cart item already exists for the user and foodstuff
-//     const existingCartItem = await pool.query(
-//       'SELECT * FROM cart WHERE foodstuff_id = $1',
-//       [id]
-//     );
-
-//     if (existingCartItem.rows.length > 0) {
-//       // Update the quantity and total price of the existing cart item
-//       const { total_price } = existingCartItem.rows[0];
-//       const totalPrice = parseFloat(foodstuff.rows[0].price) * parseInt(quantity);
-//       const updatedCartItem = await pool.query(
-//         'UPDATE cart SET quantity = quantity + $1, total_price = $2 WHERE foodstuff_id = $3 RETURNING *',
-//         [quantity, total_price + totalPrice, id]
-//       );
-
-//       return res.status(200).json(updatedCartItem.rows[0]);
-//     } else {
-//       // Add a new cart item with the quantity and total price
-//       const newCartItem = await pool.query(
-//         'INSERT INTO cart (foodstuff_id, quantity, total_price) VALUES ($1, $2, $3) RETURNING *',
-//         [id, quantity, totalPrice]
-//       );
-
-//      return res.status(201).json(newCartItem.rows[0]);
-//     }
-//   } catch (err) {
-//     console.error(err.message);
-//     res.status(500).json({
-//       message: 'Server error',
-//     });
-//   }
-// };
 
 // Add a foodstuff to the cart
 exports.addFoodstuffToCart = async (req, res) => {
@@ -134,107 +82,52 @@ exports.addFoodstuffToCart = async (req, res) => {
   }
 };
 
-// Checkout the cart
-exports.checkoutCart = async (req, res) => {
-  const { user_id } = req.user; // assuming user is authenticated and user ID is available in req.user
 
+
+exports.payment = async (req, res) => {
   try {
-    // Save the cart items to the database
-    const cartItems = await pool.query(
-      'SELECT foodstuff_id, quantity, total_price FROM cart WHERE user_id = $1',
-      [user_id]
-    );
-    await Promise.all(
-      cartItems.rows.map(async item => {
-        await pool.query(
-          'INSERT INTO cart_history (user_id, foodstuff_id, quantity, total_price) VALUES ($1, $2, $3, $4)',
-          [user_id, item.foodstuff_id, item.quantity, item.total_price]
-        );
-      })
-    );
+    const { id, email } = req.body;
 
-    // Clear the cart after successful checkout
-    await pool.query('DELETE FROM cart WHERE user_id = $1', [user_id]);
+    const result = await pool.query('SELECT * FROM cart WHERE id = $1', [id]);
+    const result2 = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    
+    console.log(result.rows[0]);
+    console.log(result2.rows[0])
 
-    res.status(200).json({ message: 'Cart checked out successfully!' });
+    const ref = uuid.v4();
+
+    const response = await axios.post(
+      "https://api.flutterwave.com/v3/payments",
+      {
+        tx_ref: ref, // Generate a UUID for the transaction reference
+        amount: result.rows[0].total_price.toString(), // Convert the amount to a string
+        currency: "NGN",
+        redirect_url:
+          "https://webhook.site/60d2d9fa-477d-44ba-8c12-9dcb73e130c7",
+        meta: {
+          consumer_id: uuid.v4(),
+          consumer_mac: "92a3-912ba-1192a",
+        },
+        customer: {
+          email: result2.rows[0].email,
+          name: result2.rows[0].username,
+        },
+        customizations: {
+          title: "Flutterwave",
+          logo: "http://www.w3.org/2000/svg",
+        },
+      },
+      {
+        headers: {
+          Authorization:`Bearer ${process.env.FLW_SECRET_KEY}`,
+        },
+      }
+    );
+    console.log(response);
+
+    res.send(response.data);
   } catch (err) {
-    console.error(err.message);
-    res.status(500).json({ message: 'Something went wrong!' });
+    console.error(err);
+    res.status(500).send(err.message);
   }
 };
-
-
-// Calculate the total price of the cart
-exports.calculateTotalPrice = async (req, res) => {
-  const { user_id } = req.user; // assuming user is authenticated and user ID is available in req.user
-
-  try {
-    const totalPrice = await pool.query(
-      'SELECT SUM(total_price) FROM cart WHERE user_id = $1',
-      [user_id]
-    );
-    res.status(200).json({
-      totalPrice: totalPrice.rows[0].sum,
-    });
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({
-      message: 'Server error',
-    });
-  }
-};
-
-// Checkout the cart
-// exports.checkoutCart = async (req, res) => {
-//   const { user_id } = req.user; // assuming user is authenticated and user ID is available in req.user
-
-//   try {
-//     // Save the cart items to the database
-//     const cartItems = await pool.query(
-//       'SELECT foodstuff_id, quantity, total_price FROM cart WHERE user_id = $1',
-//       [user_id]
-//     );
-//     await Promise.all(
-//       cartItems.rows.map(async item => {
-//         await pool.query(
-//           'INSERT INTO cart_history (user_id, foodstuff_id, quantity, total_price)
-
-
-// pay for foodstuff in cart with flutterwave
-exports.payWithFlutterwave = async (req, res) => {
-  const { cart_id } = req.params;
-  const { email, amount } = req.body;
-
-  try {
-    const cart = await pool.query(
-      'SELECT * FROM cart WHERE id = $1',
-      [cart_id]
-    );
-
-    if (cart.rows.length === 0) {
-      return res.status(404).json({
-        message: 'Cart not found',
-      });
-    }
-
-    const { total_price } = cart.rows[0];
-
-    if (total_price !== amount) {
-      return res.status(400).json({
-        message: 'Invalid amount',
-      });
-    }
-
-    const payment = await pool.query(
-      'INSERT INTO payments (cart_id, email, amount) VALUES ($1, $2, $3) RETURNING *',
-      [cart_id, email, amount]
-    );
-
-    return res.status(201).json(payment.rows[0]);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).json({
-      message: 'Server error',
-    });
-  }
-}
